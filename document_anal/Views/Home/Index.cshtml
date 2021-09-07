@@ -1,0 +1,351 @@
+﻿@model document_anal.Models.DocumentViewModel
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+
+
+@if (Model == null)
+{
+    using (Html.BeginForm("LoadFile", "Home", FormMethod.Post, new { enctype = "multipart/form-data" }))
+    {
+        <div class="row">
+            <div class="input__wrapper loading">
+                <input type="file" name="upload" id="upload" class="input input__file" accept=".docx,.doc">
+                <label for="upload" class="input__file-button">
+                    <span class="input__file-icon-wrapper">
+                        <img class="icon_load" src="@Url.Content("~/Content/img/loading.png")" alt="Выбрать файл">
+                    </span>
+                    <span class="input__file-button-text">Выберите файл</span>
+                </label>
+            </div>
+            <script>
+                let inputs = document.querySelectorAll('.input__file');
+                Array.prototype.forEach.call(inputs, function (input) {
+                    let label = input.nextElementSibling,
+                        labelVal = label.querySelector('.input__file-button-text').innerText;
+
+                    input.addEventListener('change', function (e) {
+                        let countFiles = '';
+                        if (this.files && this.files.length >= 1)
+                            countFiles = this.files.length;
+
+                        if (countFiles)
+                            label.querySelector('.input__file-button-text').innerText = 'Выбрано файлов: ' + countFiles;
+                        else
+                            label.querySelector('.input__file-button-text').innerText = labelVal;
+                    });
+                });
+            </script>
+            <div class="wrapper_processing">
+                @Html.EnumDropDownListFor(x => x.DocumentType, new { @class = "option" })
+                <input class="process_buttom" type="submit" value="Обработать файл" />
+            </div>
+        </div>
+        @Html.Raw(ViewBag.Message)
+    }
+}
+else
+{
+    @Html.HiddenFor(x => x.Name)
+    @Html.HiddenFor(x => x.Style)
+    @Html.HiddenFor(x => x.CurrentGuid)
+
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-6">
+                @using (Html.BeginForm("SaveToFile", "Home", FormMethod.Post, new { id = "docForm" }))
+                {
+
+                    @*@Html.TextAreaFor(x => x.Content, new { @id = "editorArea" })*@
+                    <style>
+                            @Html.Raw(Model.Style)
+                    </style>
+                    <div class="word-emulation wrapper_document">
+                        @Html.Raw(Model.Content)
+                    </div>
+
+                    @Html.HiddenFor(x => x.Name)
+                    @Html.HiddenFor(x => x.Style)
+                    @Html.HiddenFor(x => x.CurrentGuid)
+                    var ii = 0;
+
+                    foreach (var doc in Model.Documents)
+                    {
+
+                        @Html.Hidden("Documents[" + ii + "].Guid", doc.Guid)
+                        @Html.Hidden("Documents[" + ii + "].MemoryStream", doc.MemoryStream)
+                        @Html.Hidden("Documents[" + ii + "].FileName", doc.FileName)
+                        ++ii;
+                    }
+                }
+            </div>
+            @if (Model.ValidationErrors.Where(x => x.ErrorType == document_anal.Middleware.Enums.ErrorType.StyleError).ToList().Count > 0)
+            {
+                <div class="col-sm-3 table-bordered notes_environment">
+                    <div class="row text-center text-justify">
+                        <h4 style="width:inherit; text-align:center;">Ошибки форматирования</h4>
+                    </div>
+                    <div class="row">
+                        <ul class="notes">
+                            @{
+                                var idx = 0;
+                                foreach (var item in Model.ValidationErrors.Where(x => x.ErrorType == document_anal.Middleware.Enums.ErrorType.StyleError).ToList())
+                                {
+                                    using (Html.BeginForm("Correction", "Home", FormMethod.Post, new { @id = item.ParagraphId }))
+                                    {
+
+                                        @Html.Hidden("ValidationErrors[" + idx + "].ParagraphId", item.ParagraphId)
+                                        @Html.Hidden("ValidationErrors[" + idx + "].ErrorType", item.ErrorType)
+                                        var ii = 0;
+                                        foreach (var doc in Model.Documents)
+                                        {
+
+                                            @Html.Hidden("Documents[" + ii + "].Guid", doc.Guid)
+                                            @Html.Hidden("Documents[" + ii + "].MemoryStream", doc.MemoryStream)
+                                            @Html.Hidden("Documents[" + ii + "].FileName", doc.FileName)
+                                            ++ii;
+                                        }
+                                        ++idx;
+
+                                        <li>
+                                            <div class="row" onclick='document.getElementById("@item.ParagraphId").submit()'>
+                                                <div class="col-sm-2">
+                                                    @Html.Raw(item.Position)
+                                                </div>
+                                                <div class="col-sm-6">
+                                                    @Html.Raw(item.Description)
+                                                </div>
+                                                @Html.HiddenFor(x => x.Name)
+                                                @Html.HiddenFor(x => x.DocumentType)
+                                                @Html.HiddenFor(x => x.CurrentGuid)
+                                            </div>
+                                        </li>
+                                    }
+                                }
+                            }
+
+                        </ul>
+                        @using (Html.BeginForm("Correction", "Home", FormMethod.Post))
+                        {
+                            var index = 0;
+                            foreach (var item in Model.ValidationErrors.Where(x => x.ErrorType == document_anal.Middleware.Enums.ErrorType.StyleError).ToList())
+                            {
+                                @Html.Hidden("ValidationErrors[" + index + "].ParagraphId", item.ParagraphId)
+                                @Html.Hidden("ValidationErrors[" + index + "].ErrorType", item.ErrorType)
+                                ++index;
+                            }
+                            var ii = 0;
+                            foreach (var doc in Model.Documents)
+                            {
+
+                                @Html.Hidden("Documents[" + ii + "].Guid", doc.Guid)
+                                @Html.Hidden("Documents[" + ii + "].MemoryStream", doc.MemoryStream)
+                                @Html.Hidden("Documents[" + ii + "].FileName", doc.FileName)
+                                ++ii;
+                            }
+
+                            <div class="wrapper_save">
+                                <input class="save save-margin" id="errSmbt" type="submit" value="Исправить все" />
+                            </div>
+                            @Html.HiddenFor(x => x.Name)
+                            @Html.HiddenFor(x => x.DocumentType)
+                            @Html.HiddenFor(x => x.CurrentGuid)
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.ValidationErrors.Where(x => x.ErrorType == document_anal.Middleware.Enums.ErrorType.GridError).ToList().Count > 0)
+            {
+                <div class="col-sm-3 table-bordered notes_environment">
+                    <div class="row text-center text-justify">
+                        <h4 style="width:inherit; text-align:center;">Ошибки содержимого</h4>
+                    </div>
+                    <div class="row">
+                        <ul class="notes">
+                            @foreach (var item in Model.ValidationErrors.Where(x => x.ErrorType == document_anal.Middleware.Enums.ErrorType.GridError).ToList())
+                            {
+                                <li>
+                                    <div class="row" onclick='document.getElementById("@item.ParagraphId").submit()'>
+                                        <div class="col-sm-2">
+                                            @Html.Raw(item.Position)
+                                        </div>
+                                        <div class="col-sm-6">
+                                            @Html.Raw(item.Description)
+                                        </div>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        </div>
+        @using (Html.BeginForm("Save", "Home", FormMethod.Post))
+        {
+            @Html.HiddenFor(x => x.CurrentGuid)
+            @Html.HiddenFor(x => x.Name)
+            var ii = 0;
+            foreach (var doc in Model.Documents)
+            {
+
+                @Html.Hidden("Documents[" + ii + "].Guid", doc.Guid)
+                @Html.Hidden("Documents[" + ii + "].MemoryStream", doc.MemoryStream)
+                @Html.Hidden("Documents[" + ii + "].FileName", doc.FileName)
+                ++ii;
+            }
+            <div class="wrapper_save">
+                <input class="save" id="docSmbt" type="submit" value="Сохранить" />
+            </div>
+        }
+
+    </div>
+
+    @*<script>
+                    document.addEventListener("DOMContentLoaded", function (e) {
+                tinymce.init({
+                selector: 'textarea#editorArea',
+                            forced_root_block: 'span',
+                            height: 500,
+                            plugins: [
+                                'advlist autolink lists link image charmap print preview anchor',
+                                'searchreplace visualblocks code fullscreen',
+                                'insertdatetime media table code help wordcount'
+                            ],
+                            toolbar: 'undo redo',
+                            content_css: 'document',
+                            content_style: "@Model.Style"
+                        });
+            });
+        </script>*@
+}
+
+@section Loader {
+    @if (Model != null)
+    {
+        <div class="row">
+            <div class="col-sm-4">
+                @using (Html.BeginForm("LoadFile", "Home", FormMethod.Post, new { enctype = "multipart/form-data" }))
+                {
+                    var ii = 0;
+                    foreach (var doc in Model.Documents)
+                    {
+
+                        @Html.Hidden("Documents[" + ii + "].Guid", doc.Guid)
+                        @Html.Hidden("Documents[" + ii + "].MemoryStream", doc.MemoryStream)
+                        @Html.Hidden("Documents[" + ii + "].FileName", doc.FileName)
+                        ++ii;
+                    }
+                    <div class="row">
+                        <div class="input__wrapper loading">
+                            <input type="file" name="upload" id="upload" class="input input__file" accept=".docx,.doc">
+                            <label for="upload" class="input__file-button">
+                                <span class="input__file-icon-wrapper">
+                                    <img class="input__file-icon" src="@Url.Content("~/Content/img/loading.png")" alt="Выбрать файл" width="25">
+                                </span>
+                                <span class="input__file-button-text">Выберите файл</span>
+                            </label>
+                        </div>
+                        <!--<input type="file" name="upload" />-->
+                        <script>
+                            let inputs = document.querySelectorAll('.input__file');
+                            Array.prototype.forEach.call(inputs, function (input) {
+                                let label = input.nextElementSibling,
+                                    labelVal = label.querySelector('.input__file-button-text').innerText;
+
+                                input.addEventListener('change', function (e) {
+                                    let countFiles = '';
+                                    if (this.files && this.files.length >= 1)
+                                        countFiles = this.files.length;
+
+                                    if (countFiles)
+                                        label.querySelector('.input__file-button-text').innerText = 'Выбрано файлов: ' + countFiles;
+                                    else
+                                        label.querySelector('.input__file-button-text').innerText = labelVal;
+                                });
+                            });
+                        </script>
+                        <div class="wrapper_processing">
+                            @Html.EnumDropDownListFor(x => x.DocumentType, new { @class = "option" })
+                            <input class="process_buttom" type="submit" value="Обработать файл" />
+                        </div>
+                    </div>
+                    @Html.Raw(ViewBag.Message)
+                }
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-4 wrapper_document_list_name">
+                @{
+                    foreach (var doc in Model.Documents)
+                    {
+                        using (Html.BeginForm("ChangeCurrentDocument", "Home", new { guid = doc.Guid }, FormMethod.Post, new { @id = doc.Guid }))
+                        {
+                            var ii = 0;
+                            foreach (var d in Model.Documents)
+                            {
+                                @Html.Hidden("Documents[" + ii + "].Guid", d.Guid)
+                                @Html.Hidden("Documents[" + ii + "].MemoryStream", d.MemoryStream)
+                                @Html.Hidden("Documents[" + ii + "].FileName", d.FileName)
+                                ++ii;
+                            }
+                            <div class="row">
+                                <div class="input__wrapper loading">
+                                    @if (doc.Guid == Model.CurrentGuid)
+                                    {
+                                        <div class="container container_doc container_doc_name__active" onclick='document.getElementById("@doc.Guid").submit()'>
+                                            <div class="row">
+                                                <div class="col-sm-3">
+                                                    <!--@Html.LabelFor(x => x.Name)-->
+                                                    Наименование файла
+                                                </div>
+                                                <div class="col-sm-1">
+                                                    <!--image-->
+                                                </div>
+                                            </div>
+                                            <div class="row container_doc_name">
+                                                <h3>
+                                                    @Html.Raw(doc.FileName)
+                                                </h3>
+                                                <!--<h4>
+                                                    @Html.Raw(doc.Guid)
+                                                </h4>-->
+                                                <input type="hidden" name="guid" value="@doc.Guid" />
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="container container_doc" onclick='document.getElementById("@doc.Guid").submit()'>
+                                            <div class="row">
+                                                <div class="col-sm-3">
+                                                    <!--@Html.LabelFor(x => x.Name)-->
+                                                    Наименование файла
+                                                </div>
+                                                <div class="col-sm-1">
+                                                    <!--image-->
+                                                </div>
+                                            </div>
+                                            <div class="row container_doc_name">
+                                                <h3>
+                                                    @Html.Raw(doc.FileName)
+                                                </h3>
+                                                <!--<h4>
+                                                    @Html.Raw(doc.Guid)
+                                                </h4>-->
+                                                <input type="hidden" name="guid" value="@doc.Guid" />
+                                            </div>
+                                        </div>
+                                    }
+
+                                </div>
+                            </div>
+
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+}
